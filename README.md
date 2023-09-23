@@ -1,2 +1,2 @@
 # embeddingGenerator
-Generador de embeddings y guardado en Base de datos, usando OpenAi y Supabase
+Generador de embeddings y guardado en base de datos vectorial, usando OpenAi y Supabase
