@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import { preprocessText } from "./utils.js";
 dotenv.config();
 
 const { SECRET_OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY } = process.env;
@@ -25,29 +26,48 @@ const getMatchs = async (embedding) =>
     match_count: 2,
   });
 
-export const insertRow = async (content) => {
-  const embedding = await createVector(content);
-  const { data } = await supabase
-    .from("documents")
-    .insert([{ content, embedding }])
-    .select();
-  return data;
+export const insertRow = async (arr) => {
+  const processed = arr.map((e) => {
+    const res = { content: e, token: preprocessText(e) };
+    return res;
+  });
+  const insertionPromises = [];
+
+  for (const { content, token } of processed) {
+    const embeddingPromise = createVector(token).then((embedding) => {
+      return supabase
+        .from("documents")
+        .insert([{ content, embedding }])
+        .select();
+    });
+    insertionPromises.push(embeddingPromise);
+  }
+  await Promise.all(insertionPromises);
+  const result = { length: processed.length, result: processed };
+  return result;
 };
 
-export const generateResponse = async (content) => {
-  const embedding = await createVector(content);
+export const generateResponse = async (question) => {
+  const embedding = await createVector(preprocessText(question));
   const { data: matchs } = await getMatchs(embedding);
-  const context = matchs.map((e) => e.content).join("\n");
-  const response = await openai.chat.completions.create({
+  const context = matchs.map((e, i) => `${i + 1}. ${e.content}`).join("\n");
+  const {
+    choices: [{ message }],
+  } = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
     messages: [
       {
         role: "system",
         content: `Eres un asistente que responde dudas sobre reglas del TCG de Digimon Card Game basandote solamente y exclusivamente en las siguientes reglas. No des respuestas a menos que este aclarado en las siguientes reglas:\nReglas=\n 
-          ${context}\n ,en caso de que la pregunta no este respondida en las reglas responde: 'Perdona no puedo darte una respuesta certera' o 'No estoy preparado para responder eso'.`,
+          ${context}\nSi tu pregunta no se encuentra cubierta por estas reglas, responderé con una de las siguientes respuestas: "Perdona, no puedo proporcionar una respuesta precisa" o "No estoy preparado para responder eso".`,
       },
-      { role: "user", content },
+      { role: "user", content: question },
     ],
   });
-  return { response, matchs };
+  const result = {
+    question: question,
+    answer: message.content,
+    sources: matchs,
+  };
+  return result;
 };

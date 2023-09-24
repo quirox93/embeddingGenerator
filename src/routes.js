@@ -5,9 +5,9 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const { content } = req.query;
-    const { response, matchs } = await generateResponse(content);
-    res.json({ response, matchs });
+    const { q: question } = req.query;
+    const response = await generateResponse(question);
+    res.json(response);
   } catch (error) {
     res.json({ error: error.message });
   }
@@ -15,9 +15,9 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const { content } = req.body;
-    const data = await insertRow(content);
-    res.json({ data });
+    const arr = req.body;
+    const result = await insertRow(arr);
+    res.json({ result });
   } catch (error) {
     res.json({ error: error.message });
   }
