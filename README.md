@@ -24,3 +24,7 @@ EmbeddingGenerator es una herramienta de generación de embeddings y su almacena
 - Almacenamiento seguro y escalable en Supabase y PostgreSQL.
 - Búsqueda y recuperación rápida de embeddings utilizando pgVector.
 - Integración sencilla en aplicaciones existentes a través de API REST.
+
+## Documentación que he usado
+- https://supabase.com/blog/openai-embeddings-postgres-vector
+
