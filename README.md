@@ -20,7 +20,7 @@ EmbeddingGenerator es una herramienta de generación de embeddings y su almacena
 
 ## Características Principales
 
-- Generación eficiente de embeddings utilizando OpenAI.
+- Generación eficiente de embeddings utilizando OpenAI y Natura.
 - Almacenamiento seguro y escalable en Supabase y PostgreSQL.
 - Búsqueda y recuperación rápida de embeddings utilizando pgVector.
 - Integración sencilla en aplicaciones existentes a través de API REST.
