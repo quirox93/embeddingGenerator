@@ -15,8 +15,8 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const arr = req.body;
-    const result = await insertRow(arr);
+    const obj = req.body;
+    const result = await insertRow(obj);
     res.json({ result });
   } catch (error) {
     res.json({ error: error.message });

@@ -10,41 +10,63 @@ const openai = new OpenAI({
 });
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const createVector = async (text) => {
+const createVector = async (rule_id, content) => {
+  const cleanContent = preprocessText(`${content}`);
   const {
     data: [{ embedding }],
   } = await openai.embeddings.create({
     model: "text-embedding-ada-002",
-    input: text,
+    input: cleanContent,
   });
-  return embedding;
+  return { rule_id, content, embedding };
 };
 const getMatchs = async (embedding) =>
   await supabase.rpc("match_documents", {
     query_embedding: embedding,
     match_threshold: 0.6,
-    match_count: 2,
+    match_count: 5,
   });
 
-export const insertRow = async (arr) => {
-  const processed = arr.map((e) => {
-    const res = { content: e, token: preprocessText(e) };
-    return res;
-  });
+const deleteVectors = async (rule_id) => {
+  const { error } = await supabase
+    .from("documents")
+    .delete()
+    .eq("rule_id", rule_id);
+  console.log(error);
+  return error;
+};
+
+export const insertRow = async (obj) => {
+  // Inserto o actualizo la info principal
+  const { data, error } = await supabase
+    .from("main_rules")
+    .upsert(obj)
+    .select();
+  if (error) return error;
+
+  // Creo nuevos vectores y los guardo
   const insertionPromises = [];
-
-  for (const { content, token } of processed) {
-    const embeddingPromise = createVector(token).then((embedding) => {
-      return supabase
-        .from("documents")
-        .insert([{ content, embedding }])
-        .select();
-    });
-    insertionPromises.push(embeddingPromise);
+  for (const { title, content, id } of data) {
+    // Si actualice elimino los vectores asociados
+    if (id) await deleteVectors(id);
+    const allContents = content
+      .split(/\n|\.\s/)
+      .map((s) => s.trim())
+      .filter((e) => e.length > 1);
+    insertionPromises.push(createVector(id, title));
+    for (const content of allContents) {
+      const embeddingPromise = createVector(id, content);
+      insertionPromises.push(embeddingPromise);
+    }
   }
-  await Promise.all(insertionPromises);
-  const result = { length: processed.length, result: processed };
-  return result;
+  const promises = await Promise.all(insertionPromises);
+  const { data: embeddings, error: _error } = await supabase
+    .from("documents")
+    .insert(promises)
+    .select();
+  if (_error) return _error;
+
+  return { data, embeddings: promises.map((e) => e.content) };
 };
 
 export const generateResponse = async (question) => {
@@ -63,6 +85,7 @@ export const generateResponse = async (question) => {
       },
       { role: "user", content: question },
     ],
+    temperature: 0,
   });
   const result = {
     question: question,
